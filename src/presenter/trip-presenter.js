@@ -1,9 +1,10 @@
-import {remove, render, replace} from '../framework/render';
+import {remove, render, RenderPosition, replace} from '../framework/render';
 import UiBlocker from '../framework/ui-blocker/ui-blocker';
 import TripView from '../view/trip-view';
 import EmptyTripView from '../view/empty-trip-view';
 import LoadingTripView from '../view/loading-trip-view';
 import FailedTripView from '../view/failed-trip-view';
+import TripInfoView from '../view/trip-info-view';
 import SortView from '../view/sort-view';
 import AddEventButtonView from '../view/add-event-button-view';
 import EventPresenter from './event-presenter';
@@ -51,13 +52,15 @@ export default class TripPresenter {
   #addEventButton = null;
   #sortComponent = null;
   #tripComponent = new TripView();
-  #emptyTripComponent = new EmptyTripView();
+  #emptyTripComponent = null;
   #loadingTripComponent = new LoadingTripView();
   #failedTripComponent = new FailedTripView();
   #uiBlocker = new UiBlocker({
     lowerLimit: TimeLimit.LOWER_LIMIT,
     upperLimit: TimeLimit.UPPER_LIMIT
   });
+
+  #tripInfoComponent = null;
 
   /**
    * @type {boolean}
@@ -171,6 +174,7 @@ export default class TripPresenter {
   #handleModelEvent = (updateType, data) => {
     switch (updateType) {
       case UpdateType.PATCH:
+
         this.#eventPresenter.get(data.id).init(data, this.offers, this.destinations);
         break;
       case UpdateType.MINOR:
@@ -230,10 +234,27 @@ export default class TripPresenter {
     remove(this.#sortComponent);
     remove(this.#loadingTripComponent);
     remove(this.#emptyTripComponent);
+    remove(this.#tripInfoComponent);
 
     if (resetSortType) {
       this.#currentSortType = SortType.DAY;
     }
+  }
+
+  #renderEmptyTrip() {
+    this.#emptyTripComponent = new EmptyTripView({filterType: this.#filterModel.filter});
+
+    return render(this.#emptyTripComponent, this.#tripContainer);
+  }
+
+  #renderTripInfo() {
+    this.#tripInfoComponent = new TripInfoView({
+      events: this.events,
+      offers: this.offers,
+      destinations: this.destinations
+    });
+
+    render(this.#tripInfoComponent, this.#headerContainer, RenderPosition.AFTERBEGIN);
   }
 
   #renderTrip() {
@@ -242,11 +263,12 @@ export default class TripPresenter {
       return;
     }
 
+    this.#renderTripInfo();
     this.#renderSort();
     render(this.#tripComponent, this.#tripContainer);
 
     if (this.events.length === 0) {
-      return render(this.#emptyTripComponent, this.#tripContainer);
+      this.#renderEmptyTrip();
     }
 
     for (const event of this.events) {
@@ -257,6 +279,7 @@ export default class TripPresenter {
   #removeTrip() {
     remove(this.#sortComponent);
     remove(this.#tripComponent);
+    remove(this.#tripInfoComponent);
     remove(this.#emptyTripComponent);
     remove(this.#loadingTripComponent);
   }
